@@ -8,7 +8,14 @@ const {
 const { DateTime } = require('luxon');
 const config = require('./config');
 const store = require('./store');
-const { makeUpdateEmbed, brandFiles, makeLaunchEmbed, launchFiles } = require('./branding');
+const {
+  makeUpdateEmbed,
+  brandFiles,
+  makeLaunchEmbed,
+  launchFiles,
+  statusFiles,
+  statusImageName,
+} = require('./branding');
 const { makeStatusEmbed } = require('./status-embed');
 const {
   fetchFiveMStatus,
@@ -294,7 +301,8 @@ async function refreshGuildStatus(guild, settings) {
         statusMessage = await channel.messages.fetch(settings.statusMessageId).catch(() => null);
       }
       const logoAttachment = statusMessage?.attachments.find((attachment) => attachment.name === 'logo.png');
-      const bannerAttachment = statusMessage?.attachments.find((attachment) => attachment.name === 'ralshadow.png');
+      const imageName = statusImageName();
+      const statusImageAttachment = statusMessage?.attachments.find((attachment) => attachment.name === imageName);
       const embed = makeStatusEmbed({
         serverName: settings.serverName || config.serverName,
         snapshot,
@@ -302,16 +310,19 @@ async function refreshGuildStatus(guild, settings) {
         nextRestartText: nextText,
         updatedAt: DateTime.utc().toFormat('HH:mm:ss') + ' UTC',
         logoUrl: logoAttachment?.url || 'attachment://logo.png',
-        bannerUrl: bannerAttachment?.url || 'attachment://ralshadow.png',
+        bannerUrl: statusImageAttachment?.url || `attachment://${imageName}`,
       });
       if (statusMessage) {
         const edit = { embeds: [embed], components: statusButtons(), allowedMentions: { parse: [] } };
-        if (!logoAttachment || !bannerAttachment) edit.files = brandFiles(true);
+        if (!logoAttachment || !statusImageAttachment) {
+          edit.files = statusFiles();
+          edit.attachments = [];
+        }
         await statusMessage.edit(edit);
       } else {
         statusMessage = await channel.send({
           embeds: [embed],
-          files: brandFiles(true),
+          files: statusFiles(),
           components: statusButtons(),
           allowedMentions: { parse: [] },
         });

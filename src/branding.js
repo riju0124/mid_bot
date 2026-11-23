@@ -49,13 +49,21 @@ function makeLaunchEmbed({ serverName = 'Midtown RP', websiteUrl, connectAddress
 }
 
 function launchFiles() {
+  return statusFiles();
+}
+
+function statusImageName() {
+  return fs.existsSync(launchImagePath) ? path.basename(launchImagePath) : path.basename(bannerPath);
+}
+
+function statusFiles() {
   const files = [];
   if (fs.existsSync(logoPath)) files.push(new AttachmentBuilder(logoPath, { name: 'logo.png' }));
-  const imagePath = fs.existsSync(launchImagePath) ? launchImagePath : bannerPath;
+  const imagePath = statusImageName() === path.basename(launchImagePath) ? launchImagePath : bannerPath;
   if (fs.existsSync(imagePath)) {
     files.push(new AttachmentBuilder(imagePath, { name: path.basename(imagePath) }));
   }
   return files;
 }
 
-module.exports = { makeUpdateEmbed, brandFiles, makeLaunchEmbed, launchFiles };
+module.exports = { makeUpdateEmbed, brandFiles, makeLaunchEmbed, launchFiles, statusFiles, statusImageName };
