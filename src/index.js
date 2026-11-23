@@ -41,6 +41,7 @@ const {
   occurrencesNearNow,
   parseDailyTimes,
 } = require('./schedule');
+const { deploy: deployCommands } = require('./deploy-commands');
 
 if (!config.token) {
   console.error('DISCORD_TOKEN is missing. Copy .env.example to .env and add your bot token.');
@@ -615,6 +616,31 @@ async function handleSlashCommand(interaction) {
     return true;
   }
 
+  if (commandName === 'sentlaunchuser') {
+    if (!requireGuild(interaction) || !requireAdmin(interaction)) return true;
+    try {
+      const targetUser = interaction.options.getUser('member', true);
+      const websiteUrl = normalizeWebsiteUrl(interaction.options.getString('website', true));
+      if (targetUser.bot) throw new Error('Choose a human server member; bots cannot receive launch DMs.');
+      const targetMember = await interaction.guild.members.fetch(targetUser.id).catch(() => null);
+      if (!targetMember) throw new Error('That user is not currently a member of this server.');
+      const settings = store.getOrCreateGuild(interaction.guildId, guildDefaults(interaction.guildId));
+      const connectAddress = normalizeConnectAddress(
+        interaction.options.getString('connect_address') || settings.connectAddress || config.defaultConnectAddress,
+      );
+      await showSingleLaunchPreview(interaction, {
+        websiteUrl,
+        connectAddress,
+        serverName: settings.serverName || config.serverName,
+        targetUserId: targetMember.id,
+        targetName: targetMember.displayName || targetMember.user.username,
+      });
+    } catch (error) {
+      await safeReply(interaction, error.message || 'Could not prepare the launch announcement.');
+    }
+    return true;
+  }
+
   if (commandName === 'serverpower') {
     if (!requireGuild(interaction) || !requireAdmin(interaction)) return true;
     const action = interaction.options.getString('action', true);
@@ -689,6 +715,25 @@ async function showLaunchPreview(interaction, launchDetails) {
   });
 }
 
+async function showSingleLaunchPreview(interaction, launchDetails) {
+  const nonce = crypto.randomUUID();
+  pendingBroadcasts.set(nonce, {
+    ...launchDetails,
+    type: 'launchuser',
+    guildId: interaction.guildId,
+    userId: interaction.user.id,
+  });
+
+  await interaction.reply({
+    content: `**Launch DM preview**\nThis message will be sent only to **${launchDetails.targetName}** (<@${launchDetails.targetUserId}>). Confirm to send.`,
+    embeds: [makeLaunchEmbed(launchDetails)],
+    files: launchFiles(),
+    components: [broadcastButtons(nonce, 'launchuser')],
+    allowedMentions: { parse: [] },
+    ephemeral: true,
+  });
+}
+
 async function runMemberBroadcast(interaction, pending) {
   await interaction.deferReply({ ephemeral: true });
   const isLaunch = pending.type === 'launch';
@@ -733,6 +778,29 @@ async function runMemberBroadcast(interaction, pending) {
   await interaction.editReply(`${label} finished in **${guild.name}**: **${sent} sent**, **${failed} could not be delivered**.`).catch(() => {});
 }
 
+async function runSingleLaunch(interaction, pending) {
+  await interaction.deferReply({ ephemeral: true });
+  await interaction.editReply(`Sending the launch DM to **${pending.targetName}**…`);
+  const member = await interaction.guild.members.fetch(pending.targetUserId).catch(() => null);
+  if (!member || member.user.bot) {
+    await interaction.editReply('The selected human member is no longer in this server, so no DM was sent.');
+    return;
+  }
+  try {
+    await member.send({
+      embeds: [makeLaunchEmbed(pending)],
+      files: launchFiles(),
+      allowedMentions: { parse: [] },
+    });
+    await interaction.editReply(`Launch DM sent to **${member.displayName || member.user.username}**.`);
+  } catch (error) {
+    const reason = error.code === 50007
+      ? 'their DMs are closed or they do not accept messages from this server.'
+      : 'Discord could not deliver the message.';
+    await interaction.editReply(`Could not DM **${member.displayName || member.user.username}** because ${reason}`);
+  }
+}
+
 async function handleComponent(interaction) {
   if (!interaction.isButton()) return false;
 
@@ -773,15 +841,28 @@ async function handleComponent(interaction) {
     return true;
   }
 
-  if (interaction.customId.startsWith('dmusers:confirm:') || interaction.customId.startsWith('launch:confirm:')) {
+  if (interaction.customId.startsWith('dmusers:confirm:')
+    || interaction.customId.startsWith('launch:confirm:')
+    || interaction.customId.startsWith('launchuser:confirm:')) {
     const nonce = interaction.customId.split(':').at(-1);
     const pending = pendingBroadcasts.get(nonce);
-    const isLaunchConfirm = interaction.customId.startsWith('launch:confirm:');
-    if (!pending || (pending.type === 'launch') !== isLaunchConfirm || pending.guildId !== interaction.guildId || pending.userId !== interaction.user.id || !hasManagerRole(interaction)) {
+    const expectedType = interaction.customId.startsWith('launchuser:confirm:')
+      ? 'launchuser'
+      : interaction.customId.startsWith('launch:confirm:')
+        ? 'launch'
+        : 'dmusers';
+    if (!pending || (pending.type || 'dmusers') !== expectedType || pending.guildId !== interaction.guildId || pending.userId !== interaction.user.id || !hasManagerRole(interaction)) {
       await safeReply(interaction, 'This broadcast prompt expired or you do not have permission to use it.');
       return true;
     }
     pendingBroadcasts.delete(nonce);
+    if (expectedType === 'launchuser') {
+      void runSingleLaunch(interaction, pending).catch(async (error) => {
+        console.error('Individual launch DM failed:', error);
+        await safeReply(interaction, 'The launch DM stopped because of an unexpected error. Check the bot log.');
+      });
+      return true;
+    }
     void runMemberBroadcast(interaction, pending).catch(async (error) => {
       console.error('Member DM broadcast failed:', error);
       await safeReply(interaction, 'The DM broadcast stopped because of an unexpected error. Check the bot log.');
@@ -789,7 +870,9 @@ async function handleComponent(interaction) {
     return true;
   }
 
-  if (interaction.customId.startsWith('dmusers:cancel:') || interaction.customId.startsWith('launch:cancel:')) {
+  if (interaction.customId.startsWith('dmusers:cancel:')
+    || interaction.customId.startsWith('launch:cancel:')
+    || interaction.customId.startsWith('launchuser:cancel:')) {
     const nonce = interaction.customId.split(':').at(-1);
     const pending = pendingBroadcasts.get(nonce);
     if (pending?.userId !== interaction.user.id) {
@@ -888,6 +971,11 @@ async function handleModal(interaction) {
 
 client.once(Events.ClientReady, async (readyClient) => {
   console.log(`Logged in as ${readyClient.user.tag}`);
+  try {
+    await deployCommands(readyClient.user.id);
+  } catch (error) {
+    console.error('Could not sync slash commands on startup:', error.message || error);
+  }
   await initializeConfiguredStatusChannel();
   await refreshAllStatuses();
   await updatePresence();

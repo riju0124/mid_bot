@@ -103,6 +103,24 @@ const commands = [
       .setDescription('Optional game host:port; defaults to the saved server address')
       .setMaxLength(100)
       .setRequired(false)),
+
+  new SlashCommandBuilder()
+    .setName('sentlaunchuser')
+    .setDescription('Preview and send the Midtown RP launch announcement to one member (management roles only).')
+    .addUserOption((option) => option
+      .setName('member')
+      .setDescription('Server member who should receive the launch DM')
+      .setRequired(true))
+    .addStringOption((option) => option
+      .setName('website')
+      .setDescription('GTA5 website URL to include in the launch DM')
+      .setMaxLength(200)
+      .setRequired(true))
+    .addStringOption((option) => option
+      .setName('connect_address')
+      .setDescription('Optional game host:port; defaults to the saved server address')
+      .setMaxLength(100)
+      .setRequired(false)),
 ].map((command) => command.toJSON());
 
 function updatesButtons() {
@@ -152,11 +170,16 @@ function dmUsersModal(customId) {
 }
 
 function broadcastButtons(nonce, type = 'dmusers') {
-  const prefix = type === 'launch' ? 'launch' : 'dmusers';
+  const prefix = type === 'launch' || type === 'launchuser' ? type : 'dmusers';
+  const confirmLabel = type === 'launch'
+    ? 'Send launch DM to all members'
+    : type === 'launchuser'
+      ? 'Send launch DM to this member'
+      : 'Send to all human members';
   return new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setCustomId(`${prefix}:confirm:${nonce}`)
-      .setLabel(type === 'launch' ? 'Send launch DM to all members' : 'Send to all human members')
+      .setLabel(confirmLabel)
       .setStyle(ButtonStyle.Danger),
     new ButtonBuilder()
       .setCustomId(`${prefix}:cancel:${nonce}`)
