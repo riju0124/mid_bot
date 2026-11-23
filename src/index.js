@@ -8,7 +8,7 @@ const {
 const { DateTime } = require('luxon');
 const config = require('./config');
 const store = require('./store');
-const { makeUpdateEmbed, brandFiles } = require('./branding');
+const { makeUpdateEmbed, brandFiles, makeLaunchEmbed, launchFiles } = require('./branding');
 const { makeStatusEmbed } = require('./status-embed');
 const {
   fetchFiveMStatus,
@@ -127,6 +127,27 @@ async function safeReply(interaction, content) {
   const payload = { content, ephemeral: true };
   if (interaction.deferred || interaction.replied) return interaction.followUp(payload).catch(() => {});
   return interaction.reply(payload).catch(() => {});
+}
+
+function normalizeWebsiteUrl(input) {
+  let url;
+  try {
+    url = new URL(input.trim());
+  } catch {
+    throw new Error('Enter the GTA5 website as a full URL starting with https://.');
+  }
+  if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password) {
+    throw new Error('The website must be a public http(s) URL without login credentials.');
+  }
+  return url.toString();
+}
+
+function normalizeConnectAddress(input) {
+  const address = String(input || '').trim();
+  if (!address || address.length > 100 || /[\s`]/.test(address)) {
+    throw new Error('Set a valid game connect address with /setupserver or provide host:port.');
+  }
+  return address;
 }
 
 async function getAnnouncementChannel(guild, settings) {
@@ -564,6 +585,25 @@ async function handleSlashCommand(interaction) {
     return true;
   }
 
+  if (commandName === 'sentlaunch') {
+    if (!requireGuild(interaction) || !requireAdmin(interaction)) return true;
+    try {
+      const websiteUrl = normalizeWebsiteUrl(interaction.options.getString('website', true));
+      const settings = store.getOrCreateGuild(interaction.guildId, guildDefaults(interaction.guildId));
+      const connectAddress = normalizeConnectAddress(
+        interaction.options.getString('connect_address') || settings.connectAddress || config.defaultConnectAddress,
+      );
+      await showLaunchPreview(interaction, {
+        websiteUrl,
+        connectAddress,
+        serverName: settings.serverName || config.serverName,
+      });
+    } catch (error) {
+      await safeReply(interaction, error.message || 'Could not prepare the launch announcement.');
+    }
+    return true;
+  }
+
   if (commandName === 'serverpower') {
     if (!requireGuild(interaction) || !requireAdmin(interaction)) return true;
     const action = interaction.options.getString('action', true);
@@ -607,9 +647,41 @@ async function handleBroadcast(interaction, nonce, message) {
   });
 }
 
+async function showLaunchPreview(interaction, launchDetails) {
+  await interaction.deferReply({ ephemeral: true });
+  await interaction.editReply('Loading server members and preparing the launch announcement…');
+
+  let members;
+  try {
+    members = await interaction.guild.members.fetch();
+  } catch (error) {
+    await interaction.editReply(`Could not load all server members. Check that the Guild Members intent is enabled in the Developer Portal. (${error.message || error})`);
+    return;
+  }
+
+  const recipientCount = [...members.values()].filter((member) => !member.user.bot).length;
+  const nonce = crypto.randomUUID();
+  pendingBroadcasts.set(nonce, {
+    ...launchDetails,
+    type: 'launch',
+    guildId: interaction.guildId,
+    userId: interaction.user.id,
+    memberCount: recipientCount,
+  });
+
+  await interaction.editReply({
+    content: `**Launch DM preview**\nThis announcement will be sent to **${recipientCount} human members** in **${interaction.guild.name}**. Members with DMs closed may not receive it. Confirm to send.`,
+    embeds: [makeLaunchEmbed(launchDetails)],
+    files: launchFiles(),
+    components: [broadcastButtons(nonce, 'launch')],
+    allowedMentions: { parse: [] },
+  });
+}
+
 async function runMemberBroadcast(interaction, pending) {
   await interaction.deferReply({ ephemeral: true });
-  await interaction.editReply(`Starting the DM broadcast to ${pending.memberCount} human members…`);
+  const isLaunch = pending.type === 'launch';
+  await interaction.editReply(`Starting the ${isLaunch ? 'launch DM' : 'DM broadcast'} to ${pending.memberCount} human members…`);
   const guild = interaction.guild;
   let members;
   try {
@@ -625,20 +697,29 @@ async function runMemberBroadcast(interaction, pending) {
   let lastProgressAt = Date.now();
   for (const member of recipients) {
     try {
-      await member.send({ content: pending.message, allowedMentions: { parse: [] } });
+      const payload = isLaunch
+        ? {
+          embeds: [makeLaunchEmbed(pending)],
+          files: launchFiles(),
+          allowedMentions: { parse: [] },
+        }
+        : { content: pending.message, allowedMentions: { parse: [] } };
+      await member.send(payload);
       sent += 1;
     } catch {
       failed += 1;
     }
 
     if (Date.now() - lastProgressAt >= 15_000) {
-      await interaction.editReply(`DM broadcast in progress: **${sent} sent**, **${failed} could not be delivered**, ${recipients.length - sent - failed} remaining.`).catch(() => {});
+      const label = isLaunch ? 'Launch DM' : 'DM broadcast';
+      await interaction.editReply(`${label} in progress: **${sent} sent**, **${failed} could not be delivered**, ${recipients.length - sent - failed} remaining.`).catch(() => {});
       lastProgressAt = Date.now();
     }
     await new Promise((resolve) => setTimeout(resolve, 250));
   }
 
-  await interaction.editReply(`DM broadcast finished in **${guild.name}**: **${sent} sent**, **${failed} could not be delivered**.`).catch(() => {});
+  const label = isLaunch ? 'Launch DM' : 'DM broadcast';
+  await interaction.editReply(`${label} finished in **${guild.name}**: **${sent} sent**, **${failed} could not be delivered**.`).catch(() => {});
 }
 
 async function handleComponent(interaction) {
@@ -681,10 +762,11 @@ async function handleComponent(interaction) {
     return true;
   }
 
-  if (interaction.customId.startsWith('dmusers:confirm:')) {
+  if (interaction.customId.startsWith('dmusers:confirm:') || interaction.customId.startsWith('launch:confirm:')) {
     const nonce = interaction.customId.split(':').at(-1);
     const pending = pendingBroadcasts.get(nonce);
-    if (!pending || pending.guildId !== interaction.guildId || pending.userId !== interaction.user.id || !hasManagerRole(interaction)) {
+    const isLaunchConfirm = interaction.customId.startsWith('launch:confirm:');
+    if (!pending || (pending.type === 'launch') !== isLaunchConfirm || pending.guildId !== interaction.guildId || pending.userId !== interaction.user.id || !hasManagerRole(interaction)) {
       await safeReply(interaction, 'This broadcast prompt expired or you do not have permission to use it.');
       return true;
     }
@@ -696,7 +778,7 @@ async function handleComponent(interaction) {
     return true;
   }
 
-  if (interaction.customId.startsWith('dmusers:cancel:')) {
+  if (interaction.customId.startsWith('dmusers:cancel:') || interaction.customId.startsWith('launch:cancel:')) {
     const nonce = interaction.customId.split(':').at(-1);
     const pending = pendingBroadcasts.get(nonce);
     if (pending?.userId !== interaction.user.id) {

@@ -89,6 +89,20 @@ const commands = [
   new SlashCommandBuilder()
     .setName('dmusers')
     .setDescription('Prepare a confirmed DM broadcast to every human member (management roles only).'),
+
+  new SlashCommandBuilder()
+    .setName('sentlaunch')
+    .setDescription('Preview and send the Midtown RP launch announcement to all human members (management roles only).')
+    .addStringOption((option) => option
+      .setName('website')
+      .setDescription('GTA5 website URL to include in the launch DM')
+      .setMaxLength(200)
+      .setRequired(true))
+    .addStringOption((option) => option
+      .setName('connect_address')
+      .setDescription('Optional game host:port; defaults to the saved server address')
+      .setMaxLength(100)
+      .setRequired(false)),
 ].map((command) => command.toJSON());
 
 function updatesButtons() {
@@ -118,10 +132,6 @@ function statusButtons() {
       .setLabel('Get DM updates')
       .setStyle(ButtonStyle.Success)
       .setEmoji('🔔'),
-    new ButtonBuilder()
-      .setCustomId('updates:unsubscribe')
-      .setLabel('Unsubscribe')
-      .setStyle(ButtonStyle.Secondary),
   )];
 }
 
@@ -141,14 +151,15 @@ function dmUsersModal(customId) {
     .addComponents(new ActionRowBuilder().addComponents(input));
 }
 
-function broadcastButtons(nonce) {
+function broadcastButtons(nonce, type = 'dmusers') {
+  const prefix = type === 'launch' ? 'launch' : 'dmusers';
   return new ActionRowBuilder().addComponents(
     new ButtonBuilder()
-      .setCustomId(`dmusers:confirm:${nonce}`)
-      .setLabel('Send to all human members')
+      .setCustomId(`${prefix}:confirm:${nonce}`)
+      .setLabel(type === 'launch' ? 'Send launch DM to all members' : 'Send to all human members')
       .setStyle(ButtonStyle.Danger),
     new ButtonBuilder()
-      .setCustomId(`dmusers:cancel:${nonce}`)
+      .setCustomId(`${prefix}:cancel:${nonce}`)
       .setLabel('Cancel')
       .setStyle(ButtonStyle.Secondary),
   );
