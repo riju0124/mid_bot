@@ -14,10 +14,10 @@ function normalizeServerEndpoint(input) {
     throw new Error('Use a public http(s) server address without credentials or query parameters.');
   }
   if (!url.port && url.protocol === 'http:') url.port = '30120';
-  url.pathname = url.pathname
+  const basePath = url.pathname
     .replace(/\/(info|dynamic|players)\.json\/?$/i, '')
     .replace(/\/+$/, '');
-  return url.origin + url.pathname;
+  return url.origin + basePath;
 }
 
 async function readJson(url, timeoutMs = 6000) {
