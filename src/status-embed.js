@@ -4,6 +4,10 @@ const green = 0x32c878;
 const red = 0xed4245;
 const amber = 0xf1b642;
 const pink = 0xf23891;
+const socialLinks = [
+  '[Instagram](https://www.instagram.com/gta5midtown/)',
+  '[YouTube](https://www.youtube.com/channel/UCIk4CSELavYzGS2LRsPn51g)',
+].join(' • ');
 
 function formatBytes(bytes) {
   if (!Number.isFinite(bytes) || bytes < 0) return 'Unavailable';
@@ -34,6 +38,7 @@ function makeStatusEmbed({ serverName, snapshot, settings, nextRestartText, upda
       { name: 'Game mode', value: fivem.gameType || '—', inline: true },
       { name: 'Map', value: fivem.mapName || '—', inline: true },
       { name: 'Next restart', value: nextRestartText || 'Not scheduled', inline: true },
+      { name: 'Socials', value: socialLinks, inline: false },
     );
   if (logoUrl) embed.setThumbnail(logoUrl);
   if (bannerUrl) embed.setImage(bannerUrl);

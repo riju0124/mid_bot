@@ -1,6 +1,6 @@
 require('dotenv').config();
 
-const configuredRefreshSeconds = Number(process.env.STATUS_REFRESH_SECONDS || 60);
+const configuredRefreshSeconds = Number(process.env.STATUS_REFRESH_SECONDS || 30);
 const configuredRestartTimes = process.env.DEFAULT_RESTART_TIMES || '08:00';
 
 module.exports = {

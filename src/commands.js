@@ -106,65 +106,23 @@ function updatesButtons() {
   );
 }
 
-function statusButtons(panelEnabled = false) {
-  const controlButtons = [
+function statusButtons() {
+  return [new ActionRowBuilder().addComponents(
     new ButtonBuilder()
-      .setCustomId('admin:power:restart')
-      .setLabel(panelEnabled ? 'Restart' : 'Restart notice')
-      .setStyle(ButtonStyle.Danger),
-  ];
-  if (panelEnabled) {
-    controlButtons.push(
-      new ButtonBuilder()
-        .setCustomId('admin:power:start')
-        .setLabel('Start')
-        .setStyle(ButtonStyle.Success),
-      new ButtonBuilder()
-        .setCustomId('admin:power:stop')
-        .setLabel('Stop')
-        .setStyle(ButtonStyle.Secondary),
-    );
-  }
-  controlButtons.push(
+      .setCustomId('status:refresh')
+      .setLabel('Refresh status')
+      .setStyle(ButtonStyle.Primary)
+      .setEmoji('🔄'),
     new ButtonBuilder()
-      .setCustomId('admin:restartdone')
-      .setLabel('Restart complete')
+      .setCustomId('updates:subscribe')
+      .setLabel('Get DM updates')
+      .setStyle(ButtonStyle.Success)
+      .setEmoji('🔔'),
+    new ButtonBuilder()
+      .setCustomId('updates:unsubscribe')
+      .setLabel('Unsubscribe')
       .setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder()
-      .setCustomId('admin:dmusers')
-      .setLabel('DM everyone')
-      .setStyle(ButtonStyle.Secondary),
-  );
-
-  return [
-    new ActionRowBuilder().addComponents(
-      new ButtonBuilder()
-        .setCustomId('status:refresh')
-        .setLabel('Refresh status')
-        .setStyle(ButtonStyle.Primary)
-        .setEmoji('🔄'),
-      new ButtonBuilder()
-        .setCustomId('updates:subscribe')
-        .setLabel('Get DM updates')
-        .setStyle(ButtonStyle.Success)
-        .setEmoji('🔔'),
-      new ButtonBuilder()
-        .setCustomId('updates:unsubscribe')
-        .setLabel('Unsubscribe')
-        .setStyle(ButtonStyle.Secondary),
-    ),
-    new ActionRowBuilder().addComponents(...controlButtons),
-    new ActionRowBuilder().addComponents(
-      new ButtonBuilder()
-        .setCustomId('admin:setupserver')
-        .setLabel('Set server address')
-        .setStyle(ButtonStyle.Primary),
-      new ButtonBuilder()
-        .setCustomId('admin:setschedule')
-        .setLabel('Set restart schedule')
-        .setStyle(ButtonStyle.Primary),
-    ),
-  ];
+  )];
 }
 
 function dmUsersModal(customId) {
@@ -210,61 +168,6 @@ function powerButtons(nonce, action) {
   );
 }
 
-function setupServerModal(customId) {
-  return new ModalBuilder()
-    .setCustomId(customId)
-    .setTitle('Configure FiveM server')
-    .addComponents(
-      new ActionRowBuilder().addComponents(new TextInputBuilder()
-        .setCustomId('address')
-        .setLabel('Public FiveM host:port')
-        .setStyle(TextInputStyle.Short)
-        .setMaxLength(200)
-        .setRequired(true)
-        .setPlaceholder('51.79.162.71:28348')),
-      new ActionRowBuilder().addComponents(new TextInputBuilder()
-        .setCustomId('connect_address')
-        .setLabel('Player connect address (optional)')
-        .setStyle(TextInputStyle.Short)
-        .setMaxLength(100)
-        .setRequired(false)
-        .setPlaceholder('51.79.162.71:28348')),
-      new ActionRowBuilder().addComponents(new TextInputBuilder()
-        .setCustomId('server_name')
-        .setLabel('Server display name (optional)')
-        .setStyle(TextInputStyle.Short)
-        .setMaxLength(80)
-        .setRequired(false)
-        .setPlaceholder('Midtown RP')),
-    );
-}
-
-function restartScheduleModal(customId, settings = {}) {
-  const times = new TextInputBuilder()
-    .setCustomId('times')
-    .setLabel('Daily restart time(s), 24-hour format')
-    .setStyle(TextInputStyle.Short)
-    .setMaxLength(100)
-    .setRequired(true)
-    .setValue((settings.times || ['08:00']).join(','))
-    .setPlaceholder('08:00 or 08:00,20:00');
-  const timezone = new TextInputBuilder()
-    .setCustomId('timezone')
-    .setLabel('Timezone')
-    .setStyle(TextInputStyle.Short)
-    .setMaxLength(80)
-    .setRequired(true)
-    .setValue(settings.timezone || 'Asia/Kolkata')
-    .setPlaceholder('Asia/Kolkata');
-  return new ModalBuilder()
-    .setCustomId(customId)
-    .setTitle('Set daily restart schedule')
-    .addComponents(
-      new ActionRowBuilder().addComponents(times),
-      new ActionRowBuilder().addComponents(timezone),
-    );
-}
-
 module.exports = {
   commands,
   updatesButtons,
@@ -272,6 +175,4 @@ module.exports = {
   dmUsersModal,
   broadcastButtons,
   powerButtons,
-  setupServerModal,
-  restartScheduleModal,
 };

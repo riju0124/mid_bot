@@ -25,8 +25,6 @@ const {
   dmUsersModal,
   broadcastButtons,
   powerButtons,
-  setupServerModal,
-  restartScheduleModal,
 } = require('./commands');
 const {
   countdown,
@@ -286,14 +284,14 @@ async function refreshGuildStatus(guild, settings) {
         bannerUrl: bannerAttachment?.url || 'attachment://ralshadow.png',
       });
       if (statusMessage) {
-        const edit = { embeds: [embed], components: statusButtons(pterodactylConfigured()), allowedMentions: { parse: [] } };
+        const edit = { embeds: [embed], components: statusButtons(), allowedMentions: { parse: [] } };
         if (!logoAttachment || !bannerAttachment) edit.files = brandFiles(true);
         await statusMessage.edit(edit);
       } else {
         statusMessage = await channel.send({
           embeds: [embed],
           files: brandFiles(true),
-          components: statusButtons(pterodactylConfigured()),
+          components: statusButtons(),
           allowedMentions: { parse: [] },
         });
         settings.statusMessageId = statusMessage.id;
@@ -710,43 +708,6 @@ async function handleComponent(interaction) {
     return true;
   }
 
-  if (interaction.customId.startsWith('admin:')) {
-    if (!hasManagerRole(interaction)) {
-      await safeReply(interaction, 'Only the configured Midtown RP management roles can use this control.');
-      return true;
-    }
-    if (interaction.customId === 'admin:dmusers') {
-      await showDmUsersModal(interaction);
-      return true;
-    }
-    if (interaction.customId === 'admin:setupserver') {
-      await interaction.showModal(setupServerModal('server-config:modal'));
-      return true;
-    }
-    if (interaction.customId === 'admin:setschedule') {
-      const settings = store.getOrCreateGuild(interaction.guildId, guildDefaults(interaction.guildId));
-      await interaction.showModal(restartScheduleModal('restart-schedule:modal', settings));
-      return true;
-    }
-    if (interaction.customId === 'admin:restartdone') {
-      const settings = store.getGuild(interaction.guildId);
-      if (!settings?.pendingRestart) {
-        await safeReply(interaction, 'There is no restart marked as in progress.');
-        return true;
-      }
-      await interaction.deferReply({ ephemeral: true });
-      await finishRestart(interaction.guild, settings, 'A Midtown RP manager confirmed the server is back online.');
-      await interaction.editReply('Restart completion announced in the update channel and to DM subscribers.');
-      return true;
-    }
-    const action = interaction.customId.split(':').at(-1);
-    if (['restart', 'start', 'stop'].includes(action)) {
-      await promptPowerAction(interaction, action);
-      return true;
-    }
-    return false;
-  }
-
   if (interaction.customId.startsWith('serverpower:confirm:')) {
     const [, , action, nonce] = interaction.customId.split(':');
     const pending = pendingPowerActions.get(nonce);
@@ -826,37 +787,6 @@ async function handleModal(interaction) {
       return true;
     }
     await handleBroadcast(interaction, nonce, message);
-    return true;
-  }
-
-  if (interaction.customId === 'server-config:modal') {
-    await interaction.deferReply({ ephemeral: true });
-    try {
-      const result = await saveServerConfiguration(interaction.guild, {
-        address: interaction.fields.getTextInputValue('address'),
-        connectAddress: interaction.fields.getTextInputValue('connect_address'),
-        serverName: interaction.fields.getTextInputValue('server_name'),
-      });
-      await interaction.editReply(result.snapshot
-        ? `Server saved. Live status is posted in ${result.channel}.`
-        : 'Server address saved, but I could not refresh its status. Check the address and bot logs.');
-    } catch (error) {
-      await interaction.editReply(error.message || 'Could not save server settings.');
-    }
-    return true;
-  }
-
-  if (interaction.customId === 'restart-schedule:modal') {
-    await interaction.deferReply({ ephemeral: true });
-    try {
-      const result = await saveRestartConfiguration(interaction.guild, {
-        timesInput: interaction.fields.getTextInputValue('times'),
-        timezoneInput: interaction.fields.getTextInputValue('timezone'),
-      });
-      await interaction.editReply(`Restart schedule saved: **${result.settings.times.join(', ')}** (${result.settings.timezone}). Announcements go to ${result.channel}. Next restart: **${formatDateTime(result.next)}**.`);
-    } catch (error) {
-      await interaction.editReply(error.message || 'Could not save the restart schedule.');
-    }
     return true;
   }
 
