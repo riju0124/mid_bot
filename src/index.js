@@ -12,6 +12,7 @@ const {
   makeUpdateEmbed,
   brandFiles,
   makeLaunchEmbed,
+  makeLaunchNoticeEmbed,
   launchFiles,
   statusFiles,
   statusImageName,
@@ -31,6 +32,7 @@ const {
   statusButtons,
   dmUsersModal,
   broadcastButtons,
+  launchNoticeLinkButton,
   powerButtons,
 } = require('./commands');
 const {
@@ -683,6 +685,7 @@ async function handleBroadcast(interaction, nonce, message) {
     userId: interaction.user.id,
     message,
     memberCount: recipients.length,
+    memberIds: recipients.map((member) => member.id),
   });
   await interaction.editReply({
     content: `**Broadcast preview**\n> ${message.replace(/\n/g, '\n> ')}\n\nThis will DM **${recipients.length} human members** in **${guild.name}**. Members with DMs closed may not receive it. Confirm to send.`,
@@ -703,7 +706,8 @@ async function showLaunchPreview(interaction, launchDetails) {
     return;
   }
 
-  const recipientCount = [...members.values()].filter((member) => !member.user.bot).length;
+  const recipients = [...members.values()].filter((member) => !member.user.bot);
+  const recipientCount = recipients.length;
   const nonce = crypto.randomUUID();
   pendingBroadcasts.set(nonce, {
     ...launchDetails,
@@ -711,6 +715,7 @@ async function showLaunchPreview(interaction, launchDetails) {
     guildId: interaction.guildId,
     userId: interaction.user.id,
     memberCount: recipientCount,
+    memberIds: recipients.map((member) => member.id),
   });
 
   await interaction.editReply({
@@ -734,21 +739,23 @@ async function showLaunchNoticePreview(interaction, serverName) {
     return;
   }
 
-  const recipientCount = [...members.values()].filter((member) => !member.user.bot).length;
-  const message = `🚀 **${serverName} launches tomorrow!**\n\nCheck our Discord for more updates and official launch details. See you in the city!`;
+  const recipients = [...members.values()].filter((member) => !member.user.bot);
+  const recipientCount = recipients.length;
   const nonce = crypto.randomUUID();
   pendingBroadcasts.set(nonce, {
     type: 'launchnotice',
     guildId: interaction.guildId,
     userId: interaction.user.id,
     serverName,
-    message,
     memberCount: recipientCount,
+    memberIds: recipients.map((member) => member.id),
   });
 
   await interaction.editReply({
-    content: `**Launch notice preview**\n> ${message.replace(/\n/g, '\n> ')}\n\nThis will DM **${recipientCount} human members** in **${interaction.guild.name}**. Members with DMs closed may not receive it. Confirm to send.`,
-    components: [broadcastButtons(nonce, 'launchnotice')],
+    content: `**Launch notice preview**\nThis cinematic notice will DM **${recipientCount} human members** in **${interaction.guild.name}**. Members with DMs closed may not receive it. Confirm to send.`,
+    embeds: [makeLaunchNoticeEmbed({ serverName, discordInviteUrl: config.discordInviteUrl })],
+    files: launchFiles(),
+    components: [broadcastButtons(nonce, 'launchnotice'), launchNoticeLinkButton(config.discordInviteUrl)].filter(Boolean),
     allowedMentions: { parse: [] },
   });
 }
@@ -775,18 +782,22 @@ async function showSingleLaunchPreview(interaction, launchDetails) {
 async function runMemberBroadcast(interaction, pending) {
   await interaction.deferReply({ ephemeral: true });
   const isLaunch = pending.type === 'launch';
+  const isLaunchNotice = pending.type === 'launchnotice';
   const label = isLaunch ? 'Launch DM' : pending.type === 'launchnotice' ? 'Launch notice' : 'DM broadcast';
-  await interaction.editReply(`Starting the ${label.toLowerCase()} to ${pending.memberCount} human members…`);
   const guild = interaction.guild;
-  let members;
-  try {
-    members = await guild.members.fetch();
-  } catch (error) {
-    await interaction.editReply(`Could not load server members: ${error.message || error}`);
+  if (!Array.isArray(pending.memberIds)) {
+    await interaction.editReply('This preview expired before the member list was saved. Run the command again to prepare a fresh preview.');
     return;
   }
 
-  const recipients = [...members.values()].filter((member) => !member.user.bot);
+  const recipients = pending.memberIds
+    .map((memberId) => guild.members.cache.get(memberId))
+    .filter((member) => member && !member.user.bot);
+  if (!recipients.length) {
+    await interaction.editReply('No human members from the preview are still available to message. Run the command again to prepare a fresh preview.');
+    return;
+  }
+  await interaction.editReply(`Starting the ${label.toLowerCase()} to ${recipients.length} human members…`);
   let sent = 0;
   let failed = 0;
   let lastProgressAt = Date.now();
@@ -798,7 +809,17 @@ async function runMemberBroadcast(interaction, pending) {
           files: launchFiles(),
           allowedMentions: { parse: [] },
         }
-        : { content: pending.message, allowedMentions: { parse: [] } };
+        : isLaunchNotice
+          ? {
+            embeds: [makeLaunchNoticeEmbed({
+              serverName: pending.serverName,
+              discordInviteUrl: config.discordInviteUrl,
+            })],
+            files: launchFiles(),
+            components: [launchNoticeLinkButton(config.discordInviteUrl)].filter(Boolean),
+            allowedMentions: { parse: [] },
+          }
+          : { content: pending.message, allowedMentions: { parse: [] } };
       await member.send(payload);
       sent += 1;
     } catch {

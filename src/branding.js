@@ -48,6 +48,31 @@ function makeLaunchEmbed({ serverName = 'Midtown RP', websiteUrl, connectAddress
   return embed;
 }
 
+function makeLaunchNoticeEmbed({ serverName = 'Midtown RP', discordInviteUrl }) {
+  const embed = new EmbedBuilder()
+    .setColor(pink)
+    .setAuthor({ name: `${serverName.toUpperCase()} • OFFICIAL LAUNCH` })
+    .setTitle('THE CITY OPENS TOMORROW')
+    .setDescription(
+      '**One more night. Then it’s yours.**\n\n'
+      + `The lights are coming on, the engines are ready, and **${serverName} launches tomorrow.**\n\n`
+      + 'Your next story starts in Los Santos. Keep an eye on Discord for launch-day details.',
+    )
+    .addFields({
+      name: 'GET IN THE LOOP',
+      value: discordInviteUrl
+        ? `[Join the Midtown Discord →](${discordInviteUrl})\nBe there when the gates open.`
+        : 'Watch this Discord for the official launch details.',
+    })
+    .setFooter({ text: `${serverName.toUpperCase()} • LOS SANTOS AWAITS` });
+
+  if (discordInviteUrl) embed.setURL(discordInviteUrl);
+  if (fs.existsSync(logoPath)) embed.setThumbnail('attachment://logo.png');
+  if (fs.existsSync(launchImagePath)) embed.setImage('attachment://carislove.png');
+  else if (fs.existsSync(bannerPath)) embed.setImage('attachment://ralshadow.png');
+  return embed;
+}
+
 function launchFiles() {
   return statusFiles();
 }
@@ -66,4 +91,12 @@ function statusFiles() {
   return files;
 }
 
-module.exports = { makeUpdateEmbed, brandFiles, makeLaunchEmbed, launchFiles, statusFiles, statusImageName };
+module.exports = {
+  makeUpdateEmbed,
+  brandFiles,
+  makeLaunchEmbed,
+  makeLaunchNoticeEmbed,
+  launchFiles,
+  statusFiles,
+  statusImageName,
+};

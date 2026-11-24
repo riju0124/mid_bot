@@ -8,6 +8,7 @@ module.exports = {
   clientId: process.env.CLIENT_ID,
   guildId: process.env.GUILD_ID,
   serverName: process.env.SERVER_NAME || 'Midtown RP',
+  discordInviteUrl: process.env.DISCORD_INVITE_URL || 'https://discord.gg/wt98VaUHF',
   defaultTimezone: process.env.DEFAULT_TIMEZONE || 'Asia/Kolkata',
   defaultRestartTimes: configuredRestartTimes.split(',').map((time) => time.trim()).filter(Boolean),
   statusChannelId: process.env.STATUS_CHANNEL_ID || '1554672512556732566',

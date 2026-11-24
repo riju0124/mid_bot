@@ -193,6 +193,17 @@ function broadcastButtons(nonce, type = 'dmusers') {
   );
 }
 
+function launchNoticeLinkButton(inviteUrl) {
+  if (!inviteUrl) return null;
+  return new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setLabel('Join the Midtown Discord')
+      .setEmoji('💬')
+      .setStyle(ButtonStyle.Link)
+      .setURL(inviteUrl),
+  );
+}
+
 function powerButtons(nonce, action) {
   const actionLabel = action === 'stop' ? 'Confirm stop' : action === 'restart' ? 'Confirm restart' : 'Confirm start';
   return new ActionRowBuilder().addComponents(
@@ -213,5 +224,6 @@ module.exports = {
   statusButtons,
   dmUsersModal,
   broadcastButtons,
+  launchNoticeLinkButton,
   powerButtons,
 };
