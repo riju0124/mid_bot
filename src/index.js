@@ -597,6 +597,13 @@ async function handleSlashCommand(interaction) {
     return true;
   }
 
+  if (commandName === 'sendlaunchnotice') {
+    if (!requireGuild(interaction) || !requireAdmin(interaction)) return true;
+    const settings = store.getGuild(interaction.guildId);
+    await showLaunchNoticePreview(interaction, settings?.serverName || config.serverName);
+    return true;
+  }
+
   if (commandName === 'sentlaunch') {
     if (!requireGuild(interaction) || !requireAdmin(interaction)) return true;
     try {
@@ -715,6 +722,37 @@ async function showLaunchPreview(interaction, launchDetails) {
   });
 }
 
+async function showLaunchNoticePreview(interaction, serverName) {
+  await interaction.deferReply({ ephemeral: true });
+  await interaction.editReply('Loading server members and preparing the launch notice…');
+
+  let members;
+  try {
+    members = await interaction.guild.members.fetch();
+  } catch (error) {
+    await interaction.editReply(`Could not load all server members. Check that the Guild Members intent is enabled in the Developer Portal. (${error.message || error})`);
+    return;
+  }
+
+  const recipientCount = [...members.values()].filter((member) => !member.user.bot).length;
+  const message = `🚀 **${serverName} launches tomorrow!**\n\nCheck our Discord for more updates and official launch details. See you in the city!`;
+  const nonce = crypto.randomUUID();
+  pendingBroadcasts.set(nonce, {
+    type: 'launchnotice',
+    guildId: interaction.guildId,
+    userId: interaction.user.id,
+    serverName,
+    message,
+    memberCount: recipientCount,
+  });
+
+  await interaction.editReply({
+    content: `**Launch notice preview**\n> ${message.replace(/\n/g, '\n> ')}\n\nThis will DM **${recipientCount} human members** in **${interaction.guild.name}**. Members with DMs closed may not receive it. Confirm to send.`,
+    components: [broadcastButtons(nonce, 'launchnotice')],
+    allowedMentions: { parse: [] },
+  });
+}
+
 async function showSingleLaunchPreview(interaction, launchDetails) {
   const nonce = crypto.randomUUID();
   pendingBroadcasts.set(nonce, {
@@ -737,7 +775,8 @@ async function showSingleLaunchPreview(interaction, launchDetails) {
 async function runMemberBroadcast(interaction, pending) {
   await interaction.deferReply({ ephemeral: true });
   const isLaunch = pending.type === 'launch';
-  await interaction.editReply(`Starting the ${isLaunch ? 'launch DM' : 'DM broadcast'} to ${pending.memberCount} human members…`);
+  const label = isLaunch ? 'Launch DM' : pending.type === 'launchnotice' ? 'Launch notice' : 'DM broadcast';
+  await interaction.editReply(`Starting the ${label.toLowerCase()} to ${pending.memberCount} human members…`);
   const guild = interaction.guild;
   let members;
   try {
@@ -767,14 +806,12 @@ async function runMemberBroadcast(interaction, pending) {
     }
 
     if (Date.now() - lastProgressAt >= 15_000) {
-      const label = isLaunch ? 'Launch DM' : 'DM broadcast';
       await interaction.editReply(`${label} in progress: **${sent} sent**, **${failed} could not be delivered**, ${recipients.length - sent - failed} remaining.`).catch(() => {});
       lastProgressAt = Date.now();
     }
     await new Promise((resolve) => setTimeout(resolve, 250));
   }
 
-  const label = isLaunch ? 'Launch DM' : 'DM broadcast';
   await interaction.editReply(`${label} finished in **${guild.name}**: **${sent} sent**, **${failed} could not be delivered**.`).catch(() => {});
 }
 
@@ -843,14 +880,11 @@ async function handleComponent(interaction) {
 
   if (interaction.customId.startsWith('dmusers:confirm:')
     || interaction.customId.startsWith('launch:confirm:')
+    || interaction.customId.startsWith('launchnotice:confirm:')
     || interaction.customId.startsWith('launchuser:confirm:')) {
     const nonce = interaction.customId.split(':').at(-1);
     const pending = pendingBroadcasts.get(nonce);
-    const expectedType = interaction.customId.startsWith('launchuser:confirm:')
-      ? 'launchuser'
-      : interaction.customId.startsWith('launch:confirm:')
-        ? 'launch'
-        : 'dmusers';
+    const expectedType = interaction.customId.split(':')[0];
     if (!pending || (pending.type || 'dmusers') !== expectedType || pending.guildId !== interaction.guildId || pending.userId !== interaction.user.id || !hasManagerRole(interaction)) {
       await safeReply(interaction, 'This broadcast prompt expired or you do not have permission to use it.');
       return true;
@@ -872,6 +906,7 @@ async function handleComponent(interaction) {
 
   if (interaction.customId.startsWith('dmusers:cancel:')
     || interaction.customId.startsWith('launch:cancel:')
+    || interaction.customId.startsWith('launchnotice:cancel:')
     || interaction.customId.startsWith('launchuser:cancel:')) {
     const nonce = interaction.customId.split(':').at(-1);
     const pending = pendingBroadcasts.get(nonce);

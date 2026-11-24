@@ -121,6 +121,10 @@ const commands = [
       .setDescription('Optional game host:port; defaults to the saved server address')
       .setMaxLength(100)
       .setRequired(false)),
+
+  new SlashCommandBuilder()
+    .setName('sendlaunchnotice')
+    .setDescription('Preview and DM all human members that Midtown RP launches tomorrow (management roles only).'),
 ].map((command) => command.toJSON());
 
 function updatesButtons() {
@@ -170,16 +174,17 @@ function dmUsersModal(customId) {
 }
 
 function broadcastButtons(nonce, type = 'dmusers') {
-  const prefix = type === 'launch' || type === 'launchuser' ? type : 'dmusers';
-  const confirmLabel = type === 'launch'
-    ? 'Send launch DM to all members'
-    : type === 'launchuser'
-      ? 'Send launch DM to this member'
-      : 'Send to all human members';
+  const labels = {
+    dmusers: 'Send to all human members',
+    launch: 'Send launch DM to all members',
+    launchuser: 'Send launch DM to this member',
+    launchnotice: 'Send launch notice to all members',
+  };
+  const prefix = Object.hasOwn(labels, type) ? type : 'dmusers';
   return new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setCustomId(`${prefix}:confirm:${nonce}`)
-      .setLabel(confirmLabel)
+      .setLabel(labels[prefix])
       .setStyle(ButtonStyle.Danger),
     new ButtonBuilder()
       .setCustomId(`${prefix}:cancel:${nonce}`)
