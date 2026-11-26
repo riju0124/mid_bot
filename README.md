@@ -1,6 +1,6 @@
 # Midtown RP FiveM Discord bot
 
-The bot posts a persistent live status card in channel `1554672512556732566`, refreshes it on a timer, shows the next restart in its Discord activity, sends scheduled restart alerts, and offers optional Pterodactyl power controls. The provided logo and banner are used in the status card, restart announcements, and DM opt-in embed. Admin actions are restricted to roles `1554467538291916820` and `1564884642757345362`.
+The bot posts a persistent live status card in channel `1554672512556732566` and sends online/offline alerts. Admin actions are restricted to roles `1554467538291916820` and `1564884642757345362`.
 
 ## First run
 
@@ -22,34 +22,24 @@ The bot tries to create the live status card in channel `1554672512556732566` on
 
 ## Connect your FiveM server
 
-Run `/setupserver` as a member with one of the two manager roles and the public FiveM host and port, for example `203.0.113.10:30120`. The configured address is `51.79.162.71:28348`. The bot reads `/info.json` and `/dynamic.json` from that address to show online status, players/max slots, game mode, map, and response time. These endpoints must be reachable from the machine running the bot. Cfx.re documents the server's `/info.json` endpoint and reachability requirements [here](https://docs.fivem.net/docs/support/server-issues/).
+Run `/setupserver` as a member with one of the two manager roles and the public FiveM host and port, for example `203.0.113.10:30120`. The configured address is `15.235.180.174:25991`. The bot reads `/info.json` and `/dynamic.json` from that address to show online status, players/max slots, game mode, map, and response time. These endpoints must be reachable from the machine running the bot. Cfx.re documents the server's `/info.json` endpoint and reachability requirements [here](https://docs.fivem.net/docs/support/server-issues/).
 
-Live server status and player counts work without Pterodactyl credentials. Pterodactyl is only needed for server power buttons and panel CPU, memory, and disk details. If you later choose to connect it, set these in `.env`:
+Live server status and player counts work without Pterodactyl credentials. Pterodactyl optionally supplies panel CPU, memory, and disk details. If you later choose to connect it, set these in `.env`:
 
 - `PTERODACTYL_PANEL_URL` — the panel base URL, such as `https://panel.example.com`
 - `PTERODACTYL_SERVER_ID` — the identifier shown in the server's panel URL
-- `PTERODACTYL_API_KEY` — a client API key with resource-read and power permissions
+- `PTERODACTYL_API_KEY` — a client API key with resource-read permission
 
-The key stays in `.env`; do not send it in Discord or commit it. Pterodactyl's client API accepts `start`, `stop`, and `restart` power signals at its server power endpoint ([API reference](https://docs.pterodactyl.io/v2/api/client-api/clientSendPowerAction)).
-
-## Configure restarts
-
-The default schedule is **08:00 Asia/Kolkata**. Use `/setrestart` to change the daily time(s), timezone, or announcement channel. Times use 24-hour `HH:MM` format, separated by commas (example `04:00,16:00`). The bot announces 15, 5, and 1 minute before the restart. If Pterodactyl is configured, it sends a restart action at the scheduled time. Without panel credentials, staff must restart the server in the host panel; the bot detects it going offline and returning, then posts completion. `/restartdone` is the manual fallback.
-
-Run `/updates` to post the branded opt-in panel. Members can subscribe or stop DMs from its buttons. Subscribers receive restart notices and online/offline alerts.
+Run `/updates` to post the branded opt-in panel. Members can subscribe or stop DMs from its buttons. Subscribers receive online/offline alerts.
 
 ## Commands
 
 - `/setupserver` — connect a public FiveM address and choose the live status channel.
-- `/setrestart` — configure daily restart times, timezone, and announcement channel.
 - `/status` — fetch and show current live server status.
-- `/restartnow` — announce and request a restart immediately.
-- `/restartdone` — manually announce that the server is back online.
-- `/serverpower` — start or stop the server through Pterodactyl, with a confirmation button.
 - `/updates` — post the DM subscription panel.
 - `/dmusers` — prepare a message, preview the member count, and confirm before DMing every human member in this Discord server.
 - `/sentlaunch website:<URL> connect_address:<optional host:port>` — preview a branded launch DM with the GTA5 website and connect address, then confirm before sending it to every human member. It uses the saved game address if no connect address is supplied and sends `carislove.png` as its background.
 - `/sentlaunchuser member:<member> website:<URL> connect_address:<optional host:port>` — preview the same launch DM and confirm before sending it only to the selected human member.
 - `/sendlaunchnotice` — preview and confirm a cinematic, branded DM to every human member saying Midtown RP launches tomorrow, with the server artwork, logo, and Discord invite button. The previewed member list is reused when sending to avoid another gateway member-fetch request.
 
-The public live card has two buttons: refresh status and get DM updates. It uses `carislove.png` as its banner and places the Instagram and YouTube links at the bottom. Server setup, restart scheduling, restart actions, power controls, and member broadcasts are available through management slash commands. Admin commands check the two manager role IDs. The card edits the same saved message every 30 seconds by default (configurable with `STATUS_REFRESH_SECONDS`) instead of posting a new message. Per-server schedules, subscriptions, and message IDs are stored in `data/guilds.json`.
+The public live card has two buttons: refresh status and get DM updates. It uses `carislove.png` as its banner and places the Instagram and YouTube links at the bottom. Server setup and member broadcasts are available through management slash commands. Admin commands check the two manager role IDs. The card edits the same saved message every 30 seconds by default (configurable with `STATUS_REFRESH_SECONDS`) instead of posting a new message. Per-server settings, subscriptions, and message IDs are stored in `data/guilds.json`.

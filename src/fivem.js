@@ -96,11 +96,10 @@ function pterodactylUrl(pathname) {
   return `${base}/api/client/servers/${server}${pathname}`;
 }
 
-function pterodactylHeaders(json = false) {
+function pterodactylHeaders() {
   return {
     authorization: `Bearer ${config.pterodactylApiKey}`,
     accept: 'application/json',
-    ...(json ? { 'content-type': 'application/json' } : {}),
   };
 }
 
@@ -129,55 +128,9 @@ async function fetchPterodactylStatus() {
   }
 }
 
-async function pterodactylPower(signal) {
-  if (!pterodactylConfigured()) return { configured: false, ok: false, error: 'Pterodactyl settings are incomplete.' };
-  try {
-    const response = await fetch(pterodactylUrl('/power'), {
-      method: 'POST',
-      headers: pterodactylHeaders(true),
-      body: JSON.stringify({ signal }),
-      signal: AbortSignal.timeout(10_000),
-    });
-    if (!response.ok) {
-      const detail = await response.text().catch(() => '');
-      return { configured: true, ok: false, status: response.status, error: detail.slice(0, 300) };
-    }
-    return { configured: true, ok: true, status: response.status };
-  } catch (error) {
-    return { configured: true, ok: false, error: error.message || 'Pterodactyl request failed.' };
-  }
-}
-
-async function requestRestart(settings, target) {
-  if (pterodactylConfigured()) {
-    return { ...(await pterodactylPower('restart')), provider: 'Pterodactyl' };
-  }
-  if (!config.restartWebhookUrl) return { configured: false, ok: false };
-
-  try {
-    const headers = { 'content-type': 'application/json' };
-    if (config.restartWebhookToken) headers.authorization = `Bearer ${config.restartWebhookToken}`;
-    const response = await fetch(config.restartWebhookUrl, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({
-        event: 'restart',
-        serverName: settings.serverName,
-        scheduledAt: target ? target.toUTC().toISO() : new Date().toISOString(),
-      }),
-      signal: AbortSignal.timeout(10_000),
-    });
-    return { configured: true, ok: response.ok, status: response.status, provider: 'restart webhook' };
-  } catch (error) {
-    return { configured: true, ok: false, error: error.message || 'Restart webhook request failed.' };
-  }
-}
-
 module.exports = {
   normalizeServerEndpoint,
   fetchFiveMStatus,
   fetchPterodactylStatus,
   pterodactylConfigured,
-  pterodactylPower,
-  requestRestart,
 };

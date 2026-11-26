@@ -15,7 +15,7 @@ function formatBytes(bytes) {
   return gb >= 1 ? `${gb.toFixed(1)} GB` : `${(bytes / (1024 ** 2)).toFixed(0)} MB`;
 }
 
-function makeStatusEmbed({ serverName, snapshot, settings, nextRestartText, updatedAt, logoUrl = null, bannerUrl = null }) {
+function makeStatusEmbed({ serverName, snapshot, settings, updatedAt, logoUrl = null, bannerUrl = null }) {
   const { fivem, panel, online } = snapshot;
   const color = online === true ? green : online === false ? red : amber;
   const headline = online === true ? '🟢 ONLINE' : online === false ? '🔴 OFFLINE' : '🟡 SETUP REQUIRED';
@@ -26,14 +26,13 @@ function makeStatusEmbed({ serverName, snapshot, settings, nextRestartText, upda
   const embed = new EmbedBuilder()
     .setColor(color)
     .setTitle(`${liveName} • LIVE SERVER STATUS`)
-    .setDescription(`${headline}${settings.pendingRestart ? '\n**RESTART IN PROGRESS**' : ''}`);
+    .setDescription(headline);
   if (logoUrl) embed.setThumbnail(logoUrl);
   if (bannerUrl) embed.setImage(bannerUrl);
 
   const fields = [
     { name: '👥 Players', value: playerLine, inline: true },
     { name: '📶 Response', value: fivem.latencyMs === undefined ? 'Unavailable' : `${fivem.latencyMs} ms`, inline: true },
-    { name: '⏰ Next restart', value: nextRestartText || 'Not scheduled', inline: false },
     { name: '🎭 Game mode', value: fivem.gameType || '—', inline: true },
     { name: '🗺️ Map', value: fivem.mapName || '—', inline: true },
   ];

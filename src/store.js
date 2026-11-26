@@ -1,6 +1,8 @@
 const fs = require('node:fs/promises');
 const path = require('node:path');
 
+const { migrateAddress } = require('./server-address');
+
 const dataDirectory = path.join(__dirname, '..', 'data');
 const dataPath = path.join(dataDirectory, 'guilds.json');
 let state = { guilds: {} };
@@ -12,6 +14,18 @@ async function loadStore() {
     const raw = await fs.readFile(dataPath, 'utf8');
     const parsed = JSON.parse(raw);
     state = parsed && parsed.guilds ? parsed : { guilds: {} };
+    let changed = false;
+    for (const settings of Object.values(state.guilds)) {
+      for (const field of ['serverEndpoint', 'connectAddress']) {
+        const address = migrateAddress(settings[field]);
+        if (address !== settings[field]) {
+          settings[field] = address;
+          settings.lastKnownOnline = null;
+          changed = true;
+        }
+      }
+    }
+    if (changed) await saveStore();
   } catch (error) {
     if (error.code !== 'ENOENT') throw error;
     await saveStore();
@@ -40,14 +54,10 @@ function getOrCreateGuild(guildId, defaults = {}) {
       channelId: defaults.channelId || null,
       statusChannelId: defaults.statusChannelId || null,
       statusMessageId: null,
-      timezone: defaults.timezone || 'Asia/Kolkata',
-      times: defaults.times || [],
       serverName: defaults.serverName || 'Midtown RP',
       serverEndpoint: defaults.serverEndpoint || '',
       connectAddress: defaults.connectAddress || '',
       subscribers: {},
-      lastNotifications: {},
-      pendingRestart: null,
       lastKnownOnline: null,
     };
   }
@@ -59,8 +69,6 @@ function getOrCreateGuild(guildId, defaults = {}) {
     serverEndpoint: defaults.serverEndpoint || '',
     connectAddress: defaults.connectAddress || '',
     subscribers: {},
-    lastNotifications: {},
-    pendingRestart: null,
     lastKnownOnline: null,
   })) {
     if (settings[key] === undefined) settings[key] = value;

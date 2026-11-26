@@ -35,56 +35,12 @@ const commands = [
       .setRequired(false)),
 
   new SlashCommandBuilder()
-    .setName('setrestart')
-    .setDescription('Set daily FiveM restart times and the announcement channel.')
-    .addChannelOption((option) => option
-      .setName('channel')
-      .setDescription('Where restart updates should be posted')
-      .addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement)
-      .setRequired(true))
-    .addStringOption((option) => option
-      .setName('times')
-      .setDescription('Daily restart times in 24-hour format, separated by commas (example: 04:00,16:00)')
-      .setMaxLength(100)
-      .setRequired(true))
-    .addStringOption((option) => option
-      .setName('timezone')
-      .setDescription('IANA timezone, for example Asia/Kolkata or America/New_York')
-      .setMaxLength(80)
-      .setRequired(false))
-    .addStringOption((option) => option
-      .setName('server_name')
-      .setDescription('Name shown on restart updates')
-      .setMaxLength(80)
-      .setRequired(false)),
-
-  new SlashCommandBuilder()
     .setName('updates')
-    .setDescription('Post the Midtown RP restart DM opt-in panel.'),
+    .setDescription('Post the Midtown RP status DM opt-in panel.'),
 
   new SlashCommandBuilder()
     .setName('status')
-    .setDescription('Show the next restart and updater status.'),
-
-  new SlashCommandBuilder()
-    .setName('restartnow')
-    .setDescription('Request a restart and announce it (management roles only).'),
-
-  new SlashCommandBuilder()
-    .setName('restartdone')
-    .setDescription('Mark the server restart as complete (management roles only).'),
-
-  new SlashCommandBuilder()
-    .setName('serverpower')
-    .setDescription('Start or stop the FiveM server through Pterodactyl (management roles only).')
-    .addStringOption((option) => option
-      .setName('action')
-      .setDescription('Power action to send to Pterodactyl')
-      .addChoices(
-        { name: 'Start server', value: 'start' },
-        { name: 'Stop server', value: 'stop' },
-      )
-      .setRequired(true)),
+    .setDescription('Show live FiveM server status and the connect address.'),
 
   new SlashCommandBuilder()
     .setName('dmusers')
@@ -204,20 +160,6 @@ function launchNoticeLinkButton(inviteUrl) {
   );
 }
 
-function powerButtons(nonce, action) {
-  const actionLabel = action === 'stop' ? 'Confirm stop' : action === 'restart' ? 'Confirm restart' : 'Confirm start';
-  return new ActionRowBuilder().addComponents(
-    new ButtonBuilder()
-      .setCustomId(`serverpower:confirm:${action}:${nonce}`)
-      .setLabel(actionLabel)
-      .setStyle(action === 'start' ? ButtonStyle.Success : ButtonStyle.Danger),
-    new ButtonBuilder()
-      .setCustomId(`serverpower:cancel:${nonce}`)
-      .setLabel('Cancel')
-      .setStyle(ButtonStyle.Secondary),
-  );
-}
-
 module.exports = {
   commands,
   updatesButtons,
@@ -225,5 +167,4 @@ module.exports = {
   dmUsersModal,
   broadcastButtons,
   launchNoticeLinkButton,
-  powerButtons,
 };
