@@ -26,6 +26,7 @@ const {
 } = require('./fivem');
 const {
   updatesButtons,
+  connectRow,
   statusButtons,
   dmUsersModal,
   broadcastButtons,
@@ -221,7 +222,7 @@ async function refreshGuildStatus(guild, settings) {
         bannerUrl: statusImageAttachment?.url || `attachment://${imageName}`,
       });
       if (statusMessage) {
-        const edit = { embeds: [embed], components: statusButtons(), allowedMentions: { parse: [] } };
+        const edit = { embeds: [embed], components: statusButtons(settings.connectAddress), allowedMentions: { parse: [] } };
         if (!logoAttachment || !statusImageAttachment) {
           edit.files = statusFiles();
           edit.attachments = [];
@@ -231,7 +232,7 @@ async function refreshGuildStatus(guild, settings) {
         statusMessage = await channel.send({
           embeds: [embed],
           files: statusFiles(),
-          components: statusButtons(),
+          components: statusButtons(settings.connectAddress),
           allowedMentions: { parse: [] },
         });
         settings.statusMessageId = statusMessage.id;
@@ -353,7 +354,7 @@ async function handleSlashCommand(interaction) {
       settings,
       updatedAt: DateTime.utc().toFormat('HH:mm:ss') + ' UTC',
     });
-    await interaction.editReply({ embeds: [embed], allowedMentions: { parse: [] } });
+    await interaction.editReply({ embeds: [embed], components: connectRow(settings.connectAddress), allowedMentions: { parse: [] } });
     return true;
   }
 

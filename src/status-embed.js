@@ -1,4 +1,5 @@
 const { EmbedBuilder } = require('discord.js');
+const { statusJoinCode } = require('./server-address');
 
 const green = 0x32c878;
 const red = 0xed4245;
@@ -38,7 +39,8 @@ function makeStatusEmbed({ serverName, snapshot, settings, updatedAt, logoUrl = 
   ];
 
   if (settings.connectAddress) {
-    fields.push({ name: '🎮 Connect', value: `\`connect ${settings.connectAddress}\``, inline: false });
+    const address = statusJoinCode(settings.connectAddress) || settings.connectAddress;
+    fields.push({ name: '🎮 Connect', value: `\`\`\`connect ${address}\`\`\``, inline: false });
   }
   if (panel.configured && panel.state) {
     fields.push({

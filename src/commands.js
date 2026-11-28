@@ -8,6 +8,7 @@ const {
   TextInputBuilder,
   TextInputStyle,
 } = require('discord.js');
+const { statusJoinCode } = require('./server-address');
 
 const commands = [
   new SlashCommandBuilder()
@@ -98,7 +99,19 @@ function updatesButtons() {
   );
 }
 
-function statusButtons() {
+function connectRow(connectAddress) {
+  const code = statusJoinCode(connectAddress);
+  if (!code) return [];
+  return [new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setLabel('Connect')
+      .setEmoji('🎮')
+      .setStyle(ButtonStyle.Link)
+      .setURL(`https://cfx.re/join/${code}`),
+  )];
+}
+
+function statusButtons(connectAddress) {
   return [new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setCustomId('status:refresh')
@@ -110,7 +123,7 @@ function statusButtons() {
       .setLabel('Get DM updates')
       .setStyle(ButtonStyle.Success)
       .setEmoji('🔔'),
-  )];
+  ), ...connectRow(connectAddress)];
 }
 
 function dmUsersModal(customId) {
@@ -163,6 +176,7 @@ function launchNoticeLinkButton(inviteUrl) {
 module.exports = {
   commands,
   updatesButtons,
+  connectRow,
   statusButtons,
   dmUsersModal,
   broadcastButtons,
